@@ -1,0 +1,146 @@
+{
+  "Logistic Regression": {
+    "auc": 0.7879680867431227,
+    "brier_score": 0.18237677107809547,
+    "avg_precision": 0.8195608931181663,
+    "accuracy": 0.7268441486411537,
+    "precision": 0.7386018237082067,
+    "recall": 0.8162188099808061,
+    "f1": 0.7754729883747435,
+    "ece": 0.018471133838286066
+  },
+  "MLP": {
+    "auc": 0.7902172487458416,
+    "brier_score": 0.1877979189157486,
+    "avg_precision": 0.8225689222826822,
+    "accuracy": 0.714087631724903,
+    "precision": 0.7695852534562212,
+    "recall": 0.7212092130518234,
+    "f1": 0.7446123358929898,
+    "ece": 0.0687810144719321
+  },
+  "MLP + MC Dropout": {
+    "auc": 0.7897288899089742,
+    "brier_score": 0.18624593317508698,
+    "avg_precision": 0.8223398636828317,
+    "accuracy": 0.7182473655019412,
+    "precision": 0.7696969696969697,
+    "recall": 0.7312859884836852,
+    "f1": 0.75,
+    "ece": 0.06385525533773471,
+    "uncertainty_error_correlation": 0.16576957824181052,
+    "error_rate_low_uncertainty": 0.2129783693843594,
+    "error_rate_high_uncertainty": 0.3505268996117582,
+    "selective_prediction": [
+      {
+        "coverage": 0.5,
+        "n_samples": 1803,
+        "auc": 0.8615971985435213,
+        "accuracy": 0.7870216306156406,
+        "brier_score": 0.15244849026203156
+      },
+      {
+        "coverage": 0.6,
+        "n_samples": 2163,
+        "auc": 0.8483669807869846,
+        "accuracy": 0.7748497457235322,
+        "brier_score": 0.15965120494365692
+      },
+      {
+        "coverage": 0.7,
+        "n_samples": 2524,
+        "auc": 0.8337990733920428,
+        "accuracy": 0.7622820919175911,
+        "brier_score": 0.16630612313747406
+      },
+      {
+        "coverage": 0.8,
+        "n_samples": 2884,
+        "auc": 0.8182940469371853,
+        "accuracy": 0.7461858529819695,
+        "brier_score": 0.17375896871089935
+      },
+      {
+        "coverage": 0.9,
+        "n_samples": 3245,
+        "auc": 0.8046647014844672,
+        "accuracy": 0.7325115562403698,
+        "brier_score": 0.1799977719783783
+      },
+      {
+        "coverage": 1.0,
+        "n_samples": 3606,
+        "auc": 0.7897288899089742,
+        "accuracy": 0.7182473655019412,
+        "brier_score": 0.18624591827392578
+      }
+    ]
+  },
+  "LSTM": {
+    "auc": 0.7529949417500459,
+    "brier_score": 0.47587472200393677,
+    "avg_precision": 0.786587595786046,
+    "accuracy": 0.42207432057681643,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "ece": 0.4889046016148706
+  },
+  "LSTM + MC Dropout": {
+    "auc": 0.7453642166963865,
+    "brier_score": 0.47421321272850037,
+    "avg_precision": 0.7809097777153643,
+    "accuracy": 0.42207432057681643,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "ece": 0.4870901093903477,
+    "uncertainty_error_correlation": 0.20144456035977823,
+    "error_rate_low_uncertainty": 0.5008319467554077,
+    "error_rate_high_uncertainty": 0.6550194120909595,
+    "selective_prediction": [
+      {
+        "coverage": 0.5,
+        "n_samples": 1803,
+        "auc": 0.7386907838070629,
+        "accuracy": 0.49916805324459235,
+        "brier_score": 0.41986212134361267
+      },
+      {
+        "coverage": 0.6,
+        "n_samples": 2163,
+        "auc": 0.7460262292836599,
+        "accuracy": 0.48220064724919093,
+        "brier_score": 0.4320054352283478
+      },
+      {
+        "coverage": 0.7,
+        "n_samples": 2524,
+        "auc": 0.7407298100904617,
+        "accuracy": 0.46711568938193343,
+        "brier_score": 0.44298097491264343
+      },
+      {
+        "coverage": 0.8,
+        "n_samples": 2884,
+        "auc": 0.7363435418666202,
+        "accuracy": 0.45561719833564496,
+        "brier_score": 0.4511643052101135
+      },
+      {
+        "coverage": 0.9,
+        "n_samples": 3245,
+        "auc": 0.7383386310659037,
+        "accuracy": 0.4406779661016949,
+        "brier_score": 0.4618622362613678
+      },
+      {
+        "coverage": 1.0,
+        "n_samples": 3606,
+        "auc": 0.7453642166963865,
+        "accuracy": 0.42207432057681643,
+        "brier_score": 0.474213182926178
+      }
+    ]
+  }
+}
