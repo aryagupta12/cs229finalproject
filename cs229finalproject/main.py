@@ -25,6 +25,12 @@ from src.models import (
 )
 from src.train import train_pytorch_model, compute_class_weight
 from src.mc_dropout import mc_dropout_predict, mc_dropout_predict_lstm
+from src.ensemble import (
+    train_ensemble_mlp_members,
+    train_ensemble_lstm_members,
+    ensemble_predict_mlp,
+    ensemble_predict_lstm,
+)
 from src.evaluation import (
     compute_standard_metrics,
     compute_ece,
@@ -59,9 +65,14 @@ CONFIG = {
     'lstm_batch_size': 64,
     'lstm_lr': 0.001,
     'lstm_patience': 10,
+    'lstm_weight_decay': 0.0,
 
     # MC Dropout config
     'mc_n_passes': 50,
+
+    # Deep Ensemble config
+    'ensemble_n_members': 5,
+    'ensemble_base_seed': 100,
 
     # Output
     'results_dir': os.path.join(os.path.dirname(__file__), 'results'),
@@ -248,6 +259,53 @@ def main():
     )
 
     # ============================================
+    # Step 3b: MLP + Deep Ensemble
+    # ============================================
+    print(f"Step 3b: Training MLP Deep Ensemble ({CONFIG['ensemble_n_members']} members)...")
+
+    mlp_ensemble_models = train_ensemble_mlp_members(
+        input_size=X_train.shape[1],
+        hidden_sizes=CONFIG['mlp_hidden_sizes'],
+        dropout=CONFIG['mlp_dropout'],
+        X_train=X_train, y_train=y_train,
+        X_val=X_val, y_val=y_val,
+        n_members=CONFIG['ensemble_n_members'],
+        base_seed=CONFIG['ensemble_base_seed'],
+        epochs=CONFIG['mlp_epochs'],
+        batch_size=CONFIG['mlp_batch_size'],
+        learning_rate=CONFIG['mlp_lr'],
+        patience=CONFIG['mlp_patience'],
+        device=CONFIG['device'],
+        class_weight=class_weight,
+    )
+
+    mlp_ens_result = ensemble_predict_mlp(mlp_ensemble_models, X_test, device=CONFIG['device'])
+
+    mlp_ens_metrics = compute_standard_metrics(y_test, mlp_ens_result['risk_scores'])
+    mlp_ens_metrics['ece'] = compute_ece(y_test, mlp_ens_result['risk_scores'])
+    mlp_ens_metrics.update(compute_uncertainty_metrics(
+        y_test, mlp_ens_result['risk_scores'], mlp_ens_result['uncertainty_scores']
+    ))
+
+    all_results['MLP + Deep Ensemble'] = {
+        'y_prob': mlp_ens_result['risk_scores'],
+        'risk_scores': mlp_ens_result['risk_scores'],
+        'uncertainty_scores': mlp_ens_result['uncertainty_scores'],
+        'all_predictions': mlp_ens_result['all_predictions'],
+        'metrics': mlp_ens_metrics,
+    }
+
+    print(f"  AUC:                         {mlp_ens_metrics['auc']:.4f}")
+    print(f"  Uncertainty-Error Corr:      {mlp_ens_metrics['uncertainty_error_correlation']:.4f}")
+    print(f"  Error Rate (Low Unc):        {mlp_ens_metrics['error_rate_low_uncertainty']:.4f}")
+    print(f"  Error Rate (High Unc):       {mlp_ens_metrics['error_rate_high_uncertainty']:.4f}")
+    print()
+
+    for i, m in enumerate(mlp_ensemble_models):
+        torch.save(m.state_dict(),
+                   os.path.join(results_dir, 'models', f'mlp_ensemble_{i}.pt'))
+
+    # ============================================
     # Step 4: LSTM + MC Dropout (comparison)
     # ============================================
     print('Step 4: Training LSTM (for comparison)...')
@@ -270,6 +328,10 @@ def main():
         dropout=CONFIG['lstm_dropout'],
     )
 
+    # Class weight from per-year labels (much lower positive rate than 3-yr aggregate)
+    y_lstm_all_years = np.concatenate([y_tr_y1, y_tr_y2, y_tr_y3])
+    lstm_class_weight = compute_class_weight(y_lstm_all_years)
+
     # For LSTM we train on all 3 time steps; validation uses year-3 AUC
     lstm_result = train_pytorch_model(
         lstm_model,
@@ -280,17 +342,20 @@ def main():
         learning_rate=CONFIG['lstm_lr'],
         patience=CONFIG['lstm_patience'],
         device=CONFIG['device'],
-        class_weight=class_weight,
+        class_weight=lstm_class_weight,
         lstm_mode=True,
+        weight_decay=CONFIG['lstm_weight_decay'],
     )
 
     lstm_model = lstm_result['model']
 
-    # Standard LSTM prediction (last time step)
+    # Standard LSTM prediction via survival rule:
+    # P(recidivate within 3yr) = 1 - (1-p1)(1-p2)(1-p3)
     lstm_model.eval()
     with torch.no_grad():
         lstm_logits = lstm_model(torch.FloatTensor(X_test_seq).to(CONFIG['device']))
-        lstm_probs = torch.sigmoid(lstm_logits[:, -1]).cpu().numpy()
+        lstm_year_probs = torch.sigmoid(lstm_logits).cpu().numpy()  # (n, 3)
+    lstm_probs = 1 - np.prod(1 - lstm_year_probs, axis=1)
 
     lstm_metrics = compute_standard_metrics(y_test, lstm_probs)
     lstm_metrics['ece'] = compute_ece(y_test, lstm_probs)
@@ -333,6 +398,55 @@ def main():
     )
 
     # ============================================
+    # Step 4b: LSTM + Deep Ensemble
+    # ============================================
+    print(f"Step 4b: Training LSTM Deep Ensemble ({CONFIG['ensemble_n_members']} members)...")
+
+    lstm_ensemble_models = train_ensemble_lstm_members(
+        input_size=X_train_seq.shape[2],
+        hidden_size=CONFIG['lstm_hidden_size'],
+        num_layers=CONFIG['lstm_num_layers'],
+        dropout=CONFIG['lstm_dropout'],
+        X_train=X_train_seq, y_train=y_train_seq,
+        X_val=X_val_seq, y_val=y_val_seq,
+        n_members=CONFIG['ensemble_n_members'],
+        base_seed=CONFIG['ensemble_base_seed'],
+        epochs=CONFIG['lstm_epochs'],
+        batch_size=CONFIG['lstm_batch_size'],
+        learning_rate=CONFIG['lstm_lr'],
+        patience=CONFIG['lstm_patience'],
+        device=CONFIG['device'],
+        class_weight=lstm_class_weight,
+        weight_decay=CONFIG['lstm_weight_decay'],
+    )
+
+    lstm_ens_result = ensemble_predict_lstm(lstm_ensemble_models, X_test_seq, device=CONFIG['device'])
+
+    lstm_ens_metrics = compute_standard_metrics(y_test, lstm_ens_result['risk_scores'])
+    lstm_ens_metrics['ece'] = compute_ece(y_test, lstm_ens_result['risk_scores'])
+    lstm_ens_metrics.update(compute_uncertainty_metrics(
+        y_test, lstm_ens_result['risk_scores'], lstm_ens_result['uncertainty_scores']
+    ))
+
+    all_results['LSTM + Deep Ensemble'] = {
+        'y_prob': lstm_ens_result['risk_scores'],
+        'risk_scores': lstm_ens_result['risk_scores'],
+        'uncertainty_scores': lstm_ens_result['uncertainty_scores'],
+        'all_predictions': lstm_ens_result['all_predictions'],
+        'metrics': lstm_ens_metrics,
+    }
+
+    print(f"  AUC:                         {lstm_ens_metrics['auc']:.4f}")
+    print(f"  Uncertainty-Error Corr:      {lstm_ens_metrics['uncertainty_error_correlation']:.4f}")
+    print(f"  Error Rate (Low Unc):        {lstm_ens_metrics['error_rate_low_uncertainty']:.4f}")
+    print(f"  Error Rate (High Unc):       {lstm_ens_metrics['error_rate_high_uncertainty']:.4f}")
+    print()
+
+    for i, m in enumerate(lstm_ensemble_models):
+        torch.save(m.state_dict(),
+                   os.path.join(results_dir, 'models', f'lstm_ensemble_{i}.pt'))
+
+    # ============================================
     # Step 5: Save results and generate report
     # ============================================
     print('Step 5: Generating report and saving results...')
@@ -357,7 +471,8 @@ def main():
         ece_val = m.get('ece', float('nan'))
         print(f"{name:<30} {m['auc']:<10.4f} {m['brier_score']:<10.4f} {ece_val:<10.4f}")
 
-    for mc_name in ('MLP + MC Dropout', 'LSTM + MC Dropout'):
+    for mc_name in ('MLP + MC Dropout', 'LSTM + MC Dropout',
+                    'MLP + Deep Ensemble', 'LSTM + Deep Ensemble'):
         if mc_name not in all_results:
             continue
         mc_m = all_results[mc_name]['metrics']

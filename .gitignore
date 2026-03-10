@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+
+# Saved model weights (reproducible by rerunning main.py)
+cs229finalproject/results/models/*.pt
+
+# OS
+.DS_Store

@@ -113,12 +113,12 @@ def create_sequences_for_lstm(
         y_seq: (n_samples, 3)  — label at each year
     """
     n_samples, n_features = X.shape
-    time_indicators = np.array([[0.0], [0.5], [1.0]])  # normalised time steps
+    time_indicators = np.array([1.0, 2.0, 3.0])  # year index (non-zero at all steps)
 
     X_seq = np.zeros((n_samples, 3, n_features + 1), dtype=np.float32)
     for t, ti in enumerate(time_indicators):
         X_seq[:, t, :n_features] = X
-        X_seq[:, t, n_features] = ti[0]
+        X_seq[:, t, n_features] = ti
 
     y_seq = np.stack([y_year1, y_year2, y_year3], axis=1).astype(np.float32)
     return X_seq, y_seq

@@ -25,6 +25,8 @@ def train_pytorch_model(
     device: str = 'cpu',
     class_weight: Optional[float] = None,
     lstm_mode: bool = False,
+    seed: int = 42,
+    weight_decay: float = 0.0,
 ) -> Dict:
     """
     Train a PyTorch model with early stopping.
@@ -49,9 +51,9 @@ def train_pytorch_model(
             'best_epoch': int
         }
     """
-    torch.manual_seed(42)
+    torch.manual_seed(seed)
     model = model.to(device)
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     if class_weight is not None:
         pos_weight = torch.tensor([class_weight], dtype=torch.float32).to(device)

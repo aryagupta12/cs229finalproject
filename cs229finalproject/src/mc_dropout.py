@@ -104,9 +104,12 @@ def mc_dropout_predict_lstm(
     temporal_risk = all_preds.mean(axis=2)            # (n_samples, seq_len)
     temporal_uncertainty = all_preds.var(axis=2)      # (n_samples, seq_len)
 
-    risk_scores = temporal_risk[:, -1]
-    uncertainty_scores = temporal_uncertainty[:, -1]
-    all_predictions = all_preds[:, -1, :]             # (n_samples, n_passes)
+    # Survival rule: P(recidivate within 3yr) = 1 - prod_t(1 - p_t)
+    # Applied per forward pass then averaged across passes
+    survival_per_pass = 1 - np.prod(1 - all_preds, axis=1)  # (n_samples, n_passes)
+    risk_scores = survival_per_pass.mean(axis=1)
+    uncertainty_scores = survival_per_pass.var(axis=1)
+    all_predictions = survival_per_pass                       # (n_samples, n_passes)
 
     return {
         'risk_scores': risk_scores,
